@@ -1,4 +1,5 @@
 import etcd
+import uuid
 
 class Lock(object):
 
@@ -35,6 +36,24 @@ class Lock(object):
     def __exit__(self, type, value, traceback):
         self.release()
 
-    def acquire(self): pass
+    def acquire(self):
+        token = str(uuid.uuid4())
+        try:
+            self.client.test_and_set(self.key, token, "0", ttl=self.ttl)
+            self.token = token
+        except etcd.EtcdKeyNotFound, e:
+            try:
+                self.client.write(self.key, token, prevExist=False, ttl=self.ttl)
+                self.token = token
+            except etcd.EtcdAlreadyExist, e:
+                # someone created the right before us
+                self.acquire()
+        except ValueError, e:
+            print e
 
-    def release(self): pass
+    def release(self):
+        if (self.token != None):
+            try:
+                self.client.test_and_set(self.key, 0, self.token)
+            except (ValueError, etcd.EtcdKeyError, etcd.EtcdKeyNotFound) as e:
+                pass # the key already expired or got acquired by someone else
