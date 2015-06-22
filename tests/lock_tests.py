@@ -57,6 +57,13 @@ class SingleLockTests(unittest.TestCase):
         time.sleep(3)
         expect(self.client.get(self.lock.key).value).to.eq("0")
 
+    def test_it_should_not_renew_if_renewSecondsPrior_is_None(self):
+        self.lock.renewSecondsPrior = None
+        self.lock.acquire()
+        time.sleep(3)
+
+        expect(lambda: self.client.get(self.lock.key)).to.raise_error(etcd.EtcdKeyNotFound)        
+
     def test_it_should_be_usable_as_a_context_manager(self):
         with self.lock:
             expect(self.client.get(self.lock.key).value).to.eq(self.lock.token)
@@ -82,7 +89,7 @@ class MultipleLocksTests(unittest.TestCase):
     def test_it_should_not_aquire_a_lock_already_acquired(self):
         expect(self.locks[0].acquire()).to.be.true()
         expect(self.locks[1].acquire(timeout=1)).to.be.false()
-        expect(self.locks[1].is_locked()).to.be.false()
+        expect(self.locks[1].is_locked()).to.be.true()
 
     def test_it_should_acquire_the_lock_when_another_agent_releases_it(self):
         expect(self.locks[0].acquire()).to.be.true()

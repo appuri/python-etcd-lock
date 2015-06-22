@@ -47,7 +47,7 @@ class Lock(object):
 
     def acquire(self, timeout=None):
         """
-        Aquire the lock. Returns True if the lock was aquired; False otherwise.
+        Aquire the lock. Returns True if the lock was acquired; False otherwise.
 
         timeout (int): Timeout to wait for the lock to change if it is already acquired.
             Defaults to None, which will block and retry until acquired. 
@@ -56,20 +56,20 @@ class Lock(object):
         while self.token is None:
             try:
                 self.client.test_and_set(self.key, token, "0", ttl=self.ttl)
-                print "%s: lock was available and aquired" % self.name
+                print "%s: lock was available and acquired" % self.name
                 self.token = token
             except etcd.EtcdKeyNotFound, e:
                 try:
                     print "%s: lock didn't exist, aquiring" % self.name
                     self.client.write(self.key, token, prevExist=False, ttl=self.ttl)
-                    print "%s: -- aquired" % self.name
+                    print "%s: -- acquired" % self.name
                     self.token = token
                 except etcd.EtcdAlreadyExist, e:
                     print "%s: xx failed" % self.name
                     pass # someone created the right before us
             except ValueError, e:
                 # someone else has the lock
-                print "%s: waiting for lock failed" % self.name
+                print "%s: lock is already acquired" % self.name
                 if False:
                     self.client.watch(self.key, timeout=timeout)
                 else:
@@ -86,6 +86,13 @@ class Lock(object):
                 if (self.renew()):
                     Timer(self.ttl, self.renew)
             Timer(self.ttl - self.renewSecondsPrior, lambda: self.renew())
+        else:
+            print "%s: not going to renew the lock" % self.name
+            def cleanup():
+                print "%s: not renewing the lock" % self.name
+                if self.token is token:
+                    self.token = None
+            Timer(self.ttl, cleanup)
 
         return True
 
