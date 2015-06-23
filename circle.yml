@@ -8,4 +8,6 @@ dependencies:
 
 test:
   pre:
-    - "./etcd/bin/etcd &"
+    - ./etcd/bin/etcd:
+      background: true
+    - sleep 3
