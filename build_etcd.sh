@@ -12,3 +12,4 @@ git clone -b $ETCD_VERSION --depth=1 https://github.com/coreos/etcd.git
 cd etcd
 ./build
 ./bin/etcd &
+sleep 1

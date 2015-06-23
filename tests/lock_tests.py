@@ -89,7 +89,7 @@ class MultipleLocksTests(unittest.TestCase):
     def test_it_should_not_aquire_a_lock_already_acquired(self):
         expect(self.locks[0].acquire()).to.be.true()
         expect(self.locks[1].acquire(timeout=1)).to.be.false()
-        expect(self.locks[1].is_locked()).to.be.true()
+        expect(self.locks[1].is_locked()).to.be.false()
 
     def test_it_should_acquire_the_lock_when_another_agent_releases_it(self):
         expect(self.locks[0].acquire()).to.be.true()
