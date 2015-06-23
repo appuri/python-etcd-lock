@@ -9,5 +9,5 @@ dependencies:
 test:
   pre:
     - ./etcd/bin/etcd:
-      background: true
+        background: true
     - sleep 3
