@@ -65,7 +65,8 @@ class SingleLockTests(unittest.TestCase):
         expect(lambda: self.client.get(self.lock.key)).to.raise_error(etcd.EtcdKeyNotFound)        
 
     def test_it_should_be_usable_as_a_context_manager(self):
-        with self.lock:
+        with self.lock as locked:
+            expect(locked).to.equal(True)
             expect(self.client.get(self.lock.key).value).to.eq(self.lock.token)
 
         expect(self.client.get(self.lock.key).value).to.eq("0")
@@ -76,9 +77,9 @@ class MultipleLocksTests(unittest.TestCase):
         self.client = etcd.Client()
         self.key = "lock-%d" % random.uniform(1,100000)
         self.locks = [
-            Lock(etcd.Client(), self.key, ttl=2, renewSecondsPrior=1, name="A"),
-            Lock(etcd.Client(), self.key, ttl=3, renewSecondsPrior=1, name="B"),
-            Lock(etcd.Client(), self.key, ttl=2, renewSecondsPrior=None, name="C")
+            Lock(etcd.Client(), self.key, ttl=2, renewSecondsPrior=1),
+            Lock(etcd.Client(), self.key, ttl=5, renewSecondsPrior=1),
+            Lock(etcd.Client(), self.key, ttl=2, renewSecondsPrior=None, timeout=2)
         ]
 
     def teardown(self):
@@ -113,4 +114,8 @@ class MultipleLocksTests(unittest.TestCase):
 
         expect(self.locks[1].is_locked()).to.be.true()
 
+    def test_it_should_use_the_default_timeout_when_used_as_a_context_manager(self):
+        self.locks[0].acquire()
+        with self.locks[2] as locked:
+            expect(locked).to.equal(False)
 

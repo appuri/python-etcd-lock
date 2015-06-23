@@ -8,20 +8,22 @@ class Lock(object):
     Lock object using etcd keys to atomically compare and swap.
     """
 
-    def __init__(self, client, key, ttl=60, renewSecondsPrior=5, name="anon"):
+    def __init__(self, client, key, ttl=60, renewSecondsPrior=5, timeout=None):
         """
         Initialize a lock object.
         Args:
             client (Client):  etcd client to use for communication.
             key (string):  key to lock.
             ttl (int):  ttl (in seconds) for the lock to live. Defaults to 60 seconds.
-            renewSecondsPrior (int): time before the end of the ttl period to renew the lock. Defaults to 5 seconds.
+            renewSecondsPrior (int or None): time before the end of the ttl period to renew the lock.
+                Defaults to 5 seconds. Specify None to disable lock renewal.
+            timeout (int or None): default timeout to use for aquisition (see acquire).
         """
         if not isinstance(client, etcd.Client):
             raise ValueError("A python-etcd Client must be provided")
         if key is None or key is '':
             raise ValueError("A etcd key must be specified")
-        if ttl is None or ttl is 0:
+        if ttl is None or ttl <= 0:
             raise ValueError("A positive TTL must be specified")
         if renewSecondsPrior is not None:
             if not isinstance(renewSecondsPrior, int) or renewSecondsPrior < 0:
@@ -37,20 +39,20 @@ class Lock(object):
         self.renewSecondsPrior = renewSecondsPrior
         self._index = None
         self.token = None
-        self.name = name
+        self.timeout = timeout
 
     def __enter__(self):
-        self.acquire()
+        return self.acquire()
 
     def __exit__(self, type, value, traceback):
-        self.release()
+        return self.release()
 
-    def acquire(self, timeout=None):
+    def acquire(self, **kwargs):
         """
         Aquire the lock. Returns True if the lock was acquired; False otherwise.
 
         timeout (int): Timeout to wait for the lock to change if it is already acquired.
-            Defaults to None, which will block and retry until acquired. 
+            Defaults to what was provided during initialization, which will block and retry until acquired. 
         """
         token = str(uuid.uuid4())
         attempted = False
@@ -66,10 +68,11 @@ class Lock(object):
                     pass # someone created the right before us
             except ValueError, e:
                 # someone else has the lock
-                if (timeout is not None):
+                if 'timeout' in kwargs or self.timeout is not None:
                     if attempted is True: return False
+                    kwargs.setdefault("timeout", self.timeout)
                     try:
-                        self.client.read(self.key, wait=True, timeout=timeout)
+                        self.client.read(self.key, wait=True, timeout=kwargs["timeout"])
                         attempted = True
                     except etcd.EtcdException, e:
                         return False
