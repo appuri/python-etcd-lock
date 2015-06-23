@@ -37,7 +37,7 @@ class SingleLockTests(unittest.TestCase):
         expect(lambda: Lock(self.client, key=None)).to.raise_error(ValueError)
 
     def test_it_should_be_able_to_be_acquired_and_released(self):
-        self.lock = Lock(self.client, "lock-%d" % random.uniform(1,100000))
+        self.lock = Lock(self.client, "locks/foo/bar/%d" % random.uniform(1,100000))
         self.lock.acquire()
         node = self.client.get(self.lock.key)
         expect(node.value).to.eq(self.lock.token)
@@ -95,6 +95,17 @@ class MultipleLocksTests(unittest.TestCase):
         expect(self.locks[0].acquire()).to.be.true()
 
         t = Thread(target=lambda: expect(self.locks[1].acquire()).to.be.true())
+        t.start()
+        time.sleep(1)
+        self.locks[0].release()
+        t.join()
+
+        expect(self.locks[1].is_locked()).to.be.true()
+
+    def test_it_aquire_a_lock_if_released_within_a_timeout(self):
+        expect(self.locks[0].acquire()).to.be.true()
+
+        t = Thread(target=lambda: expect(self.locks[1].acquire(timeout=3)).to.be.true())
         t.start()
         time.sleep(1)
         self.locks[0].release()

@@ -53,33 +53,28 @@ class Lock(object):
             Defaults to None, which will block and retry until acquired. 
         """
         token = str(uuid.uuid4())
+        attempted = False
         while self.token is None:
             try:
                 self.client.test_and_set(self.key, token, "0", ttl=self.ttl)
-                print "%s: lock was available and acquired" % self.name
                 self.token = token
             except etcd.EtcdKeyNotFound, e:
                 try:
-                    print "%s: lock didn't exist, aquiring" % self.name
-                    self.client.write(self.key, token, prevExist=False, ttl=self.ttl)
-                    print "%s: -- acquired" % self.name
+                    self.client.write(self.key, token, prevExist=False, recursive=True, ttl=self.ttl)
                     self.token = token
                 except etcd.EtcdAlreadyExist, e:
-                    print "%s: xx failed" % self.name
                     pass # someone created the right before us
             except ValueError, e:
                 # someone else has the lock
-                print "%s: lock is already acquired" % self.name
-                if False:
-                    self.client.watch(self.key, timeout=timeout)
+                if (timeout is not None):
+                    if attempted is True: return False
+                    try:
+                        self.client.read(self.key, wait=True, timeout=timeout)
+                        attempted = True
+                    except etcd.EtcdException, e:
+                        return False
                 else:
                     self.client.watch(self.key)
-                print "%s: -- lock changed" % self.name
-
-                if (timeout is not None):
-                    return False
-                else:
-                    print "%s: -- attempting again" % self.name
 
         if self.renewSecondsPrior is not None:
             def renew():
@@ -87,9 +82,7 @@ class Lock(object):
                     Timer(self.ttl, self.renew)
             Timer(self.ttl - self.renewSecondsPrior, lambda: self.renew())
         else:
-            print "%s: not going to renew the lock" % self.name
             def cleanup():
-                print "%s: not renewing the lock" % self.name
                 if self.token is token:
                     self.token = None
             Timer(self.ttl, cleanup)
