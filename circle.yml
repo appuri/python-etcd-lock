@@ -5,3 +5,7 @@ machine:
 dependencies:
   pre:
     - ./build_etcd.sh v0.4.6
+
+test:
+  pre:
+    - "./etcd/bin/etcd &"
