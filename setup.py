@@ -1,10 +1,10 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.md')).read()
 
-version = '0.0.3'
+version = '0.0.4'
 
 install_requires = [
     'python-etcd'
@@ -32,8 +32,7 @@ setup(name='python-etcd-lock',
     author_email='nathan@appuri.com',
     url='https://github.com/appuri/python-etcd-lock',
     license='ISC',
-    packages=find_packages(''),
-    package_dir = {'': '.'},
+    packages=['etcdlock'],
     include_package_data=True,
     zip_safe=False,
     install_requires=install_requires,

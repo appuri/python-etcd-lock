@@ -4,10 +4,9 @@ machine:
 
 dependencies:
   pre:
-    - ./build_etcd.sh v0.4.6
+    - "curl -L https://github.com/coreos/etcd/releases/download/v0.4.6/etcd-v0.4.6-linux-amd64.tar.gz | tar zxv"
 
 test:
   pre:
-    - ./etcd/bin/etcd:
+    - ./etcd-v0.4.6-linux-amd64/etcd:
         background: true
-    - sleep 3
