@@ -2,8 +2,8 @@ import etcd
 import uuid
 from threading import Timer
 
-class Lock(object):
 
+class Lock(object):
     """
     Lock object using etcd keys to atomically compare and swap.
     """
@@ -29,7 +29,8 @@ class Lock(object):
             if not isinstance(renewSecondsPrior, int) or renewSecondsPrior < 0:
                 raise ValueError("A positive prior renew must be specified, or None to not renew")
             if ttl - renewSecondsPrior < 1:
-                raise ValueError("The renew prior time is too close to initial aquisition time - hold the lock for at least 2 seconds")
+                raise ValueError(
+                    "The renew prior time is too close to initial aquisition time - hold the lock for at least 2 seconds")
 
         self.client = client
         if not key.startswith('/'):
@@ -65,7 +66,7 @@ class Lock(object):
                     self.client.write(self.key, token, prevExist=False, recursive=True, ttl=self.ttl)
                     self.token = token
                 except etcd.EtcdAlreadyExist, e:
-                    pass # someone created the right before us
+                    pass  # someone created the right before us
             except ValueError, e:
                 # someone else has the lock
                 if 'timeout' in kwargs or self.timeout is not None:
@@ -80,15 +81,20 @@ class Lock(object):
                     self.client.watch(self.key)
 
         if self.renewSecondsPrior is not None:
-            def renew():
-                if (self.renew()):
-                    Timer(self.ttl, self.renew)
-            Timer(self.ttl - self.renewSecondsPrior, lambda: self.renew())
+            timer_ttl = self.ttl - self.renewSecondsPrior
+
+            if timer_ttl > 0:
+                def renew():
+                    if self.renew():
+                        Timer(timer_ttl, renew).start()
+
+                Timer(timer_ttl, renew).start()
         else:
             def cleanup():
                 if self.token is token:
                     self.token = None
-            Timer(self.ttl, cleanup)
+
+            Timer(self.ttl, cleanup).start()
 
         return True
 
@@ -96,7 +102,7 @@ class Lock(object):
         """
         Renew the lock if acquired.
         """
-        if (self.token is not None):
+        if self.token is not None:
             try:
                 self.client.test_and_set(self.key, self.token, self.token, ttl=self.ttl)
                 return True
@@ -115,10 +121,10 @@ class Lock(object):
         Release the lock if acquired.
         """
         # TODO: thread safety (currently the lock may be acquired for one more TTL length)
-        if (self.token is not None):
+        if self.token is not None:
             try:
                 self.client.test_and_set(self.key, 0, self.token)
             except (ValueError, etcd.EtcdKeyError, etcd.EtcdKeyNotFound) as e:
-                pass # the key already expired or got acquired by someone else
+                pass  # the key already expired or got acquired by someone else
             finally:
                 self.token = None
